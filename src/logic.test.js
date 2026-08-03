@@ -46,32 +46,26 @@ test("equal distance favors rooting against the team ahead", () => {
   assert.equal(result.recommendations[0].target.team.id, ahead.team.id);
 });
 
-test("proximity rankings use distance and then favor teams ahead", () => {
-  const ahead = team(1, "Ahead", 62, 48);
-  const behind = team(2, "Behind", 58, 52);
-  const farther = team(3, "Farther", 57, 53);
-  const map = buildTeamMap([redSox, behind, farther, ahead]);
+test("AL matchups subtract the teams' displayed standings gaps", () => {
+  const astros = team(1, "Astros", 58, 52);
+  const rangers = team(2, "Rangers", 55, 55);
+  const map = buildTeamMap([redSox, astros, rangers]);
 
-  assert.equal(map.get(ahead.team.id).proximityRank, 1);
-  assert.equal(map.get(behind.team.id).proximityRank, 2);
-  assert.equal(map.get(farther.team.id).proximityRank, 3);
+  const result = rankGames([game(side(rangers), side(astros))], map);
+
+  assert.equal(map.get(astros.team.id).gap, -2);
+  assert.equal(map.get(rangers.team.id).gap, -5);
+  assert.equal(result.recommendations[0].rankingDifference, 3);
 });
 
-test("games rank by subtracting the teams' proximity rankings", () => {
-  const first = team(1, "First", 61, 49);
-  const second = team(2, "Second", 59, 51);
-  const third = team(3, "Third", 58, 52);
-  const fourth = team(4, "Fourth", 57, 53);
-  const nlTeam = team(201, "NL Team", 50, 50);
-  const map = buildTeamMap([redSox, first, second, third, fourth]);
-  const closeMatchup = game(side(first), side(second));
-  const widerMatchup = game(side(nlTeam, 104), side(third));
+test("interleague matchups use the AL team's proximity within the ten-game window", () => {
+  const yankees = team(147, "Yankees", 62, 48);
+  const cardinals = team(138, "Cardinals", 55, 55);
+  const map = buildTeamMap([redSox, yankees]);
 
-  const result = rankGames([closeMatchup, widerMatchup], map);
+  const result = rankGames([game(side(cardinals, 104), side(yankees))], map);
 
-  assert.equal(result.recommendations[0].game.gamePk, widerMatchup.gamePk);
-  assert.equal(result.recommendations[0].rankingDifference, 2);
-  assert.equal(result.recommendations[1].rankingDifference, 1);
+  assert.equal(result.recommendations[0].rankingDifference, 8);
 });
 
 test("games that recommend a Yankees win are omitted", () => {

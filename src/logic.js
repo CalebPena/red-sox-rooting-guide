@@ -28,13 +28,6 @@ export function buildTeamMap(records) {
     };
   });
 
-  teams
-    .filter((record) => record.eligible)
-    .sort(compareTargets)
-    .forEach((record, index) => {
-      record.proximityRank = index + 1;
-    });
-
   return new Map(teams.map((record) => [record.team.id, record]));
 }
 
@@ -60,7 +53,6 @@ export function rankGames(games, teamMap) {
       game.teams.home.team.id === RED_SOX_ID,
   );
 
-  const unrankedPosition = [...teamMap.values()].filter((record) => record.eligible).length + 1;
   const recommendations = games
     .filter((game) => game !== redSoxGame)
     .map((game) => {
@@ -78,9 +70,9 @@ export function rankGames(games, teamMap) {
       const targetSide = sides.find((side) => side.team.id === target.team.id);
       const rootForSide = sides.find((side) => side !== targetSide);
       const rootForRecord = teamMap.get(rootForSide.team.id);
-      const rootForRank = rootForRecord?.eligible
-        ? rootForRecord.proximityRank
-        : unrankedPosition;
+      const rankingDifference = rootForRecord
+        ? Math.abs(target.gap - rootForRecord.gap)
+        : Math.max(0, 10 - target.distance);
 
       // A Yankees win is never an acceptable recommendation.
       if (rootForSide.team.id === YANKEES_ID) {
@@ -92,7 +84,7 @@ export function rankGames(games, teamMap) {
         target,
         targetSide,
         rootForSide,
-        rankingDifference: rootForRank - target.proximityRank,
+        rankingDifference,
       };
     })
     .filter(Boolean)
