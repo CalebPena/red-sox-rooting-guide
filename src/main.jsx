@@ -166,8 +166,8 @@ function PickIndicator() {
   );
 }
 
-function Recommendation({ item, rank }) {
-  const { game, target, targetSide, rootForSide } = item;
+function Recommendation({ item, rank, teamMap }) {
+  const { game, targetSide, rootForSide } = item;
   const isFinal = game.status.abstractGameState === "Final";
   const hasFinalScore = Number.isInteger(rootForSide.score) && Number.isInteger(targetSide.score);
   const favorable = isFinal && hasFinalScore ? rootForSide.score > targetSide.score : null;
@@ -198,6 +198,7 @@ function Recommendation({ item, rank }) {
         <div className="recommendation__teams">
           {displaySides.map((side, index) => {
             const isPick = index === 0;
+            const standing = teamMap.get(side.team.id);
             return (
               <React.Fragment key={side.team.id}>
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
@@ -208,7 +209,7 @@ function Recommendation({ item, rank }) {
                     <h3>{teamLabel(side.team)}</h3>
                     {Number.isInteger(side.score) && <strong>{side.score}</strong>}
                   </div>
-                  {!isPick && <MatchupGap gap={target.gap} />}
+                  {standing && <MatchupGap gap={standing.gap} />}
                 </div>
               </React.Fragment>
             );
@@ -341,7 +342,12 @@ function App() {
               {data.recommendations.length ? (
                 <div className="recommendations">
                   {data.recommendations.map((item, index) => (
-                    <Recommendation item={item} rank={index + 1} key={item.game.gamePk} />
+                    <Recommendation
+                      item={item}
+                      rank={index + 1}
+                      key={item.game.gamePk}
+                      teamMap={data.teamMap}
+                    />
                   ))}
                 </div>
               ) : (
