@@ -29,6 +29,15 @@ function shiftDate(date, days) {
   return shifted.toISOString().slice(0, 10);
 }
 
+function DayArrow({ direction }) {
+  const points = direction === "previous" ? "14 5 8 11 14 17" : "8 5 14 11 8 17";
+  return (
+    <svg aria-hidden="true" viewBox="0 0 22 22">
+      <polyline points={points} />
+    </svg>
+  );
+}
+
 function displayDate(date) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -285,12 +294,16 @@ function App() {
   return (
     <div className="site-shell">
       <div className="date-bar">
-        <button onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day">←</button>
+        <button onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day" type="button">
+          <DayArrow direction="previous" />
+        </button>
         <div>
           <span>Today’s card</span>
           <strong>{displayDate(date)}</strong>
         </div>
-        <button onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day">→</button>
+        <button onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day" type="button">
+          <DayArrow direction="next" />
+        </button>
       </div>
 
       {error ? (

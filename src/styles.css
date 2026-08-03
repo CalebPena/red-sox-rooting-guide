@@ -46,16 +46,30 @@ button { cursor: pointer; }
 }
 
 .date-bar button {
+  display: grid;
   width: 38px;
   height: 38px;
+  padding: 0;
+  place-items: center;
+  justify-self: center;
   border: 1px solid var(--rule);
   border-radius: 50%;
   color: var(--green);
   background: transparent;
-  font-size: 1.2rem;
 }
 
 .date-bar button:hover { background: #e6e1d5; }
+
+.date-bar button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .date-bar span,
 .date-bar strong { display: block; }
