@@ -60,7 +60,11 @@ function gameTime(game) {
 }
 
 function score(game, sideName) {
-  const side = game.teams[sideName];
+  return sideScore(game, game.teams[sideName]);
+}
+
+function sideScore(game, side) {
+  if (!["Live", "Final"].includes(game.status.abstractGameState)) return null;
   return Number.isInteger(side.score) ? side.score : null;
 }
 
@@ -199,6 +203,7 @@ function Recommendation({ item, rank, teamMap }) {
           {displaySides.map((side, index) => {
             const isPick = index === 0;
             const standing = teamMap.get(side.team.id);
+            const displayedScore = sideScore(game, side);
             return (
               <React.Fragment key={side.team.id}>
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
@@ -207,7 +212,7 @@ function Recommendation({ item, rank, teamMap }) {
                   <div className="recommendation__team-name">
                     <TeamMark team={side.team} small />
                     <h3>{teamLabel(side.team)}</h3>
-                    {Number.isInteger(side.score) && <strong>{side.score}</strong>}
+                    {displayedScore !== null && <strong>{displayedScore}</strong>}
                   </div>
                   {standing && <MatchupGap gap={standing.gap} />}
                 </div>
