@@ -49,7 +49,17 @@ function displayDate(date) {
 
 function gameTime(game) {
   const state = game.status.abstractGameState;
-  if (state === "Live") return game.status.detailedState;
+  if (state === "Live") {
+    const inningState = game.linescore?.inningState;
+    const inning = game.linescore?.currentInningOrdinal;
+    const outs = game.linescore?.outs;
+    const inningLabel = inningState && inning ? `${inningState} ${inning}` : null;
+    const outsLabel = ["Top", "Bottom"].includes(inningState) && Number.isInteger(outs)
+      ? `${outs} ${outs === 1 ? "out" : "outs"}`
+      : null;
+
+    return [inningLabel, outsLabel].filter(Boolean).join(" · ") || game.status.detailedState;
+  }
   if (state === "Final") return "Final";
   if (game.status.startTimeTBD) return "Time TBD";
   return new Intl.DateTimeFormat("en-US", {
@@ -282,31 +292,45 @@ function App() {
     setData(null);
     setError("");
 
-    Promise.all([
-      fetch(`${API}/standings?leagueId=${AL_ID}&season=${season}&standingsTypes=regularSeason&date=${apiDate}`, {
-        signal: controller.signal,
-      }),
-      fetch(`${API}/schedule?sportId=1&date=${date}&hydrate=team,linescore,venue`, {
-        signal: controller.signal,
-      }),
-    ])
-      .then(async ([standingsResponse, scheduleResponse]) => {
+    async function loadData(initialLoad = false) {
+      try {
+        const [standingsResponse, scheduleResponse] = await Promise.all([
+          fetch(`${API}/standings?leagueId=${AL_ID}&season=${season}&standingsTypes=regularSeason&date=${apiDate}`, {
+            signal: controller.signal,
+          }),
+          fetch(`${API}/schedule?sportId=1&date=${date}&hydrate=team,linescore,venue`, {
+            signal: controller.signal,
+          }),
+        ]);
+
         if (!standingsResponse.ok || !scheduleResponse.ok) {
           throw new Error("MLB data is unavailable right now.");
         }
-        return Promise.all([standingsResponse.json(), scheduleResponse.json()]);
-      })
-      .then(([standings, schedule]) => {
+
+        const [standings, schedule] = await Promise.all([
+          standingsResponse.json(),
+          scheduleResponse.json(),
+        ]);
         const records = flattenStandings(standings);
         const teamMap = buildTeamMap(records);
         const games = schedule.dates[0]?.games ?? [];
         setData({ teamMap, ...rankGames(games, teamMap) });
-      })
-      .catch((requestError) => {
-        if (requestError.name !== "AbortError") setError(requestError.message);
-      });
+      } catch (requestError) {
+        if (requestError.name !== "AbortError" && initialLoad) {
+          setError(requestError.message);
+        }
+      }
+    }
 
-    return () => controller.abort();
+    loadData(true);
+    const refreshInterval = date === easternDate()
+      ? window.setInterval(() => loadData(), 30_000)
+      : null;
+
+    return () => {
+      controller.abort();
+      if (refreshInterval) window.clearInterval(refreshInterval);
+    };
   }, [date]);
 
   return (
