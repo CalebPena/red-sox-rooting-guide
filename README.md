@@ -18,4 +18,10 @@ npm test
 npm run build
 ```
 
+Regenerate the favicon and home-screen PNGs after editing `public/favicon.svg`:
+
+```bash
+npm run icons
+```
+
 Standings, schedules, and game results come from the MLB Stats API.
