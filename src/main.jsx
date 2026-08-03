@@ -148,6 +148,18 @@ function RaceGap({ gap }) {
   );
 }
 
+function MatchupGap({ gap }) {
+  const amount = Number.isInteger(Math.abs(gap)) ? Math.abs(gap) : Math.abs(gap).toFixed(1);
+  const value = gap === 0 ? "EVEN" : `${gap > 0 ? "+" : "−"}${amount}`;
+
+  return (
+    <span className="recommendation__gap" aria-label={gapLabel(gap)} title={gapLabel(gap)}>
+      <strong>{value}</strong>
+      <span>vs BOS</span>
+    </span>
+  );
+}
+
 function PickIndicator() {
   return (
     <span className="pick-indicator">Boston’s pick</span>
@@ -196,7 +208,7 @@ function Recommendation({ item, rank }) {
                     <h3>{teamLabel(side.team)}</h3>
                     {Number.isInteger(side.score) && <strong>{side.score}</strong>}
                   </div>
-                  {!isPick && <span className="recommendation__gap">{gapLabel(target.gap)}</span>}
+                  {!isPick && <MatchupGap gap={target.gap} />}
                 </div>
               </React.Fragment>
             );

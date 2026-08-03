@@ -239,9 +239,24 @@ button { cursor: pointer; }
   position: absolute;
   bottom: 0;
   left: 37px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding-left: 7px;
+  border-left: 2px solid var(--rule);
   color: var(--muted);
-  font-size: .62rem;
-  line-height: 1.25;
+  font-size: .56rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.recommendation__gap strong {
+  color: var(--ink);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: .82rem;
+  letter-spacing: 0;
 }
 
 .pick-indicator {
@@ -447,7 +462,8 @@ button { cursor: pointer; }
   .recommendation__team h3 { font-size: 1.22rem; }
   .recommendation__team-name strong { font-size: 1.35rem; }
   .recommendation__at { padding: 0; font-size: .62rem; }
-  .recommendation__gap { margin: 4px 0 0 29px; font-size: .54rem; }
+  .recommendation__gap { left: 29px; gap: 4px; padding-left: 5px; font-size: .48rem; }
+  .recommendation__gap strong { font-size: .72rem; }
   .pick-indicator { margin-bottom: 5px; padding: 4px 6px; font-size: .5rem; }
   .recommendation__status { gap: 5px; }
   .game-time { font-size: .58rem; }
