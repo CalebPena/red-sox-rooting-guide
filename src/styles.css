@@ -428,17 +428,30 @@ button { cursor: pointer; }
 @media (max-width: 620px) {
   .site-shell { width: min(100% - 24px, 1240px); }
   .date-bar { margin: 15px auto 18px; }
-  .sox-game { display: block; padding: 25px 22px; }
-  .sox-game .matchup { width: 100%; margin-top: 22px; }
-  .content-grid { padding: 46px 0 52px; }
+  .sox-game { display: block; min-height: 0; padding: 20px 18px; }
+  .sox-game h2 { font-size: 2.25rem; }
+  .sox-game .matchup { width: 100%; margin-top: 15px; }
+  .content-grid { gap: 36px; padding: 30px 0 42px; }
   .section-heading--guide { display: block; }
-  .section-heading--guide > p { margin-top: 14px; }
-  .recommendation { grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding: 22px 0; }
+  .section-heading--guide { margin-bottom: 17px; }
+  .section-heading--guide h1 { font-size: 2.35rem; }
+  .section-heading--guide > p { margin-top: 8px; font-size: .72rem; }
+  .recommendation { grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 14px 0; }
+  .recommendation__rank { font-size: .9rem; }
   .recommendation__matchup { grid-column: 2; }
-  .recommendation__teams { grid-template-columns: 1fr; gap: 7px; }
-  .recommendation__at { padding-left: 37px; }
-  .recommendation__team h3 { font-size: 1.8rem; }
-  .recommendation__status { align-items: flex-end; flex-direction: column; gap: 5px; }
+  .recommendation__matchup-heading { margin-bottom: 6px; }
+  .recommendation__teams { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 7px; }
+  .recommendation__team { min-height: 61px; padding: 7px 0; }
+  .recommendation__team-name { grid-template-columns: 23px minmax(0, 1fr) auto; gap: 6px; }
+  .recommendation__team .team-mark { width: 23px; height: 23px; font-size: .52rem; }
+  .recommendation__team h3 { font-size: 1.22rem; }
+  .recommendation__team-name strong { font-size: 1.35rem; }
+  .recommendation__at { padding: 0; font-size: .62rem; }
+  .recommendation__gap { margin: 4px 0 0 29px; font-size: .54rem; }
+  .pick-indicator { margin-bottom: 5px; padding: 4px 6px; font-size: .5rem; }
+  .recommendation__status { gap: 5px; }
+  .game-time { font-size: .58rem; }
+  .result-badge { padding: 4px 6px; font-size: .5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
