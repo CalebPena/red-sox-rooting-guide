@@ -46,6 +46,34 @@ test("equal distance favors rooting against the team ahead", () => {
   assert.equal(result.recommendations[0].target.team.id, ahead.team.id);
 });
 
+test("proximity rankings use distance and then favor teams ahead", () => {
+  const ahead = team(1, "Ahead", 62, 48);
+  const behind = team(2, "Behind", 58, 52);
+  const farther = team(3, "Farther", 57, 53);
+  const map = buildTeamMap([redSox, behind, farther, ahead]);
+
+  assert.equal(map.get(ahead.team.id).proximityRank, 1);
+  assert.equal(map.get(behind.team.id).proximityRank, 2);
+  assert.equal(map.get(farther.team.id).proximityRank, 3);
+});
+
+test("games rank by subtracting the teams' proximity rankings", () => {
+  const first = team(1, "First", 61, 49);
+  const second = team(2, "Second", 59, 51);
+  const third = team(3, "Third", 58, 52);
+  const fourth = team(4, "Fourth", 57, 53);
+  const nlTeam = team(201, "NL Team", 50, 50);
+  const map = buildTeamMap([redSox, first, second, third, fourth]);
+  const closeMatchup = game(side(first), side(second));
+  const widerMatchup = game(side(nlTeam, 104), side(third));
+
+  const result = rankGames([closeMatchup, widerMatchup], map);
+
+  assert.equal(result.recommendations[0].game.gamePk, widerMatchup.gamePk);
+  assert.equal(result.recommendations[0].rankingDifference, 2);
+  assert.equal(result.recommendations[1].rankingDifference, 1);
+});
+
 test("games that recommend a Yankees win are omitted", () => {
   const yankees = team(147, "Yankees", 58, 52);
   const closerTeam = team(1, "Closer", 59, 51);

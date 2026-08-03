@@ -18,20 +18,24 @@ export function buildTeamMap(records) {
     throw new Error("Boston is missing from the American League standings.");
   }
 
-  return new Map(
-    records.map((record) => {
-      const gap = relativeGap(record, redSox);
-      return [
-        record.team.id,
-        {
-          ...record,
-          gap,
-          distance: Math.abs(gap),
-          eligible: record.team.id !== RED_SOX_ID && gap > -10,
-        },
-      ];
-    }),
-  );
+  const teams = records.map((record) => {
+    const gap = relativeGap(record, redSox);
+    return {
+      ...record,
+      gap,
+      distance: Math.abs(gap),
+      eligible: record.team.id !== RED_SOX_ID && gap > -10,
+    };
+  });
+
+  teams
+    .filter((record) => record.eligible)
+    .sort(compareTargets)
+    .forEach((record, index) => {
+      record.proximityRank = index + 1;
+    });
+
+  return new Map(teams.map((record) => [record.team.id, record]));
 }
 
 export function isPlayoffTeam(record) {
@@ -56,6 +60,7 @@ export function rankGames(games, teamMap) {
       game.teams.home.team.id === RED_SOX_ID,
   );
 
+  const unrankedPosition = [...teamMap.values()].filter((record) => record.eligible).length + 1;
   const recommendations = games
     .filter((game) => game !== redSoxGame)
     .map((game) => {
@@ -72,6 +77,10 @@ export function rankGames(games, teamMap) {
       const target = eligible[0];
       const targetSide = sides.find((side) => side.team.id === target.team.id);
       const rootForSide = sides.find((side) => side !== targetSide);
+      const rootForRecord = teamMap.get(rootForSide.team.id);
+      const rootForRank = rootForRecord?.eligible
+        ? rootForRecord.proximityRank
+        : unrankedPosition;
 
       // A Yankees win is never an acceptable recommendation.
       if (rootForSide.team.id === YANKEES_ID) {
@@ -83,10 +92,14 @@ export function rankGames(games, teamMap) {
         target,
         targetSide,
         rootForSide,
+        rankingDifference: rootForRank - target.proximityRank,
       };
     })
     .filter(Boolean)
     .sort((left, right) => {
+      if (left.rankingDifference !== right.rankingDifference) {
+        return right.rankingDifference - left.rankingDifference;
+      }
       const targetOrder = compareTargets(left.target, right.target);
       if (targetOrder !== 0) return targetOrder;
       return new Date(left.game.gameDate) - new Date(right.game.gameDate);
