@@ -164,11 +164,12 @@ function RaceGap({ gap }) {
 
 function MatchupGap({ gap }) {
   const amount = Number.isInteger(Math.abs(gap)) ? Math.abs(gap) : Math.abs(gap).toFixed(1);
-  const value = gap === 0 ? "EVEN" : `${gap > 0 ? "+" : "−"}${amount}`;
 
   return (
     <span className="recommendation__gap" aria-label={gapLabel(gap)} title={gapLabel(gap)}>
-      <strong>{value}</strong>
+      <strong>
+        {gap === 0 ? "EVEN" : <><span aria-hidden="true">{gap > 0 ? "↑" : "↓"}</span> {amount}</>}
+      </strong>
       <span>vs BOS</span>
     </span>
   );
