@@ -44,6 +44,7 @@ test("equal distance favors rooting against the team ahead", () => {
   const map = buildTeamMap([redSox, ahead, behind]);
   const result = rankGames([game(side(behind), side(ahead))], map);
   assert.equal(result.recommendations[0].target.team.id, ahead.team.id);
+  assert.equal(result.recommendations[0].rankingDifference, 0);
 });
 
 test("same-side AL matchups subtract each team's distance from Boston", () => {
@@ -70,7 +71,7 @@ test("AL matchup differences compare each team's distance from Boston", () => {
   assert.equal(result.recommendations[0].rankingDifference, 4);
 });
 
-test("interleague matchups use the AL team's proximity within the ten-game window", () => {
+test("interleague matchups subtract zero threat from the AL team's threat", () => {
   const yankees = team(147, "Yankees", 62, 48);
   const cardinals = team(138, "Cardinals", 55, 55);
   const map = buildTeamMap([redSox, yankees]);
@@ -80,7 +81,7 @@ test("interleague matchups use the AL team's proximity within the ten-game windo
   assert.equal(result.recommendations[0].rankingDifference, 8);
 });
 
-test("teams ten games behind do not inflate a matchup difference", () => {
+test("teams ten games away have zero threat", () => {
   const closeTeam = team(1, "Close", 58, 52);
   const filteredTeam = team(2, "Filtered", 48, 62);
   const map = buildTeamMap([redSox, closeTeam, filteredTeam]);

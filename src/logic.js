@@ -70,9 +70,11 @@ export function rankGames(games, teamMap) {
       const targetSide = sides.find((side) => side.team.id === target.team.id);
       const rootForSide = sides.find((side) => side !== targetSide);
       const rootForRecord = teamMap.get(rootForSide.team.id);
-      const rankingDifference = rootForRecord?.eligible
-        ? Math.abs(target.distance - rootForRecord.distance)
-        : Math.max(0, 10 - target.distance);
+      const targetThreat = Math.max(0, 10 - target.distance);
+      const rootForThreat = rootForRecord
+        ? Math.max(0, 10 - rootForRecord.distance)
+        : 0;
+      const rankingDifference = Math.abs(targetThreat - rootForThreat);
 
       // A Yankees win is never an acceptable recommendation.
       if (rootForSide.team.id === YANKEES_ID) {
