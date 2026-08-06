@@ -2,7 +2,7 @@
 
 A daily guide to the MLB games that matter most from a Red Sox playoff-race perspective.
 
-The guide ranks American League opponents by their distance from Boston in the standings, ignores teams 10 or more games behind, and surfaces the five most relevant games. It never recommends rooting for the Yankees.
+The guide ranks American League opponents using their distance from Boston, remaining schedule, and current record, then surfaces the five clearest rooting choices. It never recommends rooting for the Yankees.
 
 ## Development
 

@@ -251,7 +251,7 @@ function Recommendation({ item, rank, teamMap }) {
 
 function RaceLine({ teamMap, games }) {
   const teams = [...teamMap.values()]
-    .filter((team) => team.team.id === RED_SOX_ID || team.gap > -10)
+    .filter((team) => team.team.id === RED_SOX_ID || team.eligible)
     .sort((a, b) => b.gap - a.gap);
 
   return (

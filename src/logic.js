@@ -18,13 +18,31 @@ export function buildTeamMap(records) {
     throw new Error("Boston is missing from the American League standings.");
   }
 
+  const redSoxGamesPlayed = redSox.gamesPlayed ?? redSox.wins + redSox.losses;
+  const redSoxGamesRemaining = Math.max(0, 162 - redSoxGamesPlayed);
   const teams = records.map((record) => {
     const gap = relativeGap(record, redSox);
+    const distance = Math.abs(gap);
+    const gamesPlayed = record.gamesPlayed ?? record.wins + record.losses;
+    const gamesRemaining = Math.max(0, 162 - gamesPlayed);
+    const winningPercentage = gamesPlayed > 0 ? record.wins / gamesPlayed : 0.5;
+
+    // The window shrinks with both teams' remaining schedules; proximity removes
+    // teams outside that window; the record factor rewards teams above .500;
+    // threat combines those two signals without a fixed late-season cutoff.
+    const raceWindow = Math.sqrt(redSoxGamesRemaining + gamesRemaining);
+    const proximity = Math.max(0, raceWindow - distance);
+    const recordFactor = winningPercentage / 0.5;
+    const threat = proximity * recordFactor;
+
     return {
       ...record,
       gap,
-      distance: Math.abs(gap),
-      eligible: record.team.id !== RED_SOX_ID && gap > -10,
+      distance,
+      gamesRemaining,
+      raceWindow,
+      threat,
+      eligible: record.team.id !== RED_SOX_ID && threat > 0,
     };
   });
 
@@ -37,6 +55,10 @@ export function isPlayoffTeam(record) {
 }
 
 function compareTargets(left, right) {
+  if (left.threat !== right.threat) {
+    return right.threat - left.threat;
+  }
+
   if (left.distance !== right.distance) {
     return left.distance - right.distance;
   }
@@ -70,11 +92,7 @@ export function rankGames(games, teamMap) {
       const targetSide = sides.find((side) => side.team.id === target.team.id);
       const rootForSide = sides.find((side) => side !== targetSide);
       const rootForRecord = teamMap.get(rootForSide.team.id);
-      const targetThreat = Math.max(0, 10 - target.distance);
-      const rootForThreat = rootForRecord
-        ? Math.max(0, 10 - rootForRecord.distance)
-        : 0;
-      const rankingDifference = Math.abs(targetThreat - rootForThreat);
+      const rankingDifference = Math.abs(target.threat - (rootForRecord?.threat ?? 0));
 
       // A Yankees win is never an acceptable recommendation.
       if (rootForSide.team.id === YANKEES_ID) {

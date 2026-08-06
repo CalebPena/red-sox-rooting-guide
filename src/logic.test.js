@@ -26,8 +26,8 @@ test("relative gap handles unequal games played", () => {
   assert.equal(relativeGap(team(2, "Behind", 57, 52), redSox), -2.5);
 });
 
-test("a team ten games behind is ineligible", () => {
-  const map = buildTeamMap([redSox, team(1, "Nine back", 51, 59), team(2, "Ten back", 50, 60)]);
+test("the race window excludes teams too far from Boston", () => {
+  const map = buildTeamMap([redSox, team(1, "Inside", 51, 59), team(2, "Outside", 47, 63)]);
   assert.equal(map.get(1).eligible, true);
   assert.equal(map.get(2).eligible, false);
 });
@@ -38,16 +38,16 @@ test("playoff teams include division leaders and the top three wild cards", () =
   assert.equal(isPlayoffTeam({ divisionRank: "2", wildCardRank: "4" }), false);
 });
 
-test("equal distance favors rooting against the team ahead", () => {
+test("equal distance favors the stronger team", () => {
   const ahead = team(1, "Ahead", 62, 48);
   const behind = team(2, "Behind", 58, 52);
   const map = buildTeamMap([redSox, ahead, behind]);
   const result = rankGames([game(side(behind), side(ahead))], map);
   assert.equal(result.recommendations[0].target.team.id, ahead.team.id);
-  assert.equal(result.recommendations[0].rankingDifference, 0);
+  assert.ok(result.recommendations[0].rankingDifference > 0);
 });
 
-test("same-side AL matchups subtract each team's distance from Boston", () => {
+test("matchup strength subtracts record-adjusted threat scores", () => {
   const astros = team(1, "Astros", 58, 52);
   const rangers = team(2, "Rangers", 55, 55);
   const map = buildTeamMap([redSox, astros, rangers]);
@@ -56,40 +56,41 @@ test("same-side AL matchups subtract each team's distance from Boston", () => {
 
   assert.equal(map.get(astros.team.id).gap, -2);
   assert.equal(map.get(rangers.team.id).gap, -5);
-  assert.equal(result.recommendations[0].rankingDifference, 3);
+  assert.equal(
+    result.recommendations[0].rankingDifference,
+    Math.abs(map.get(astros.team.id).threat - map.get(rangers.team.id).threat),
+  );
 });
 
-test("AL matchup differences compare each team's distance from Boston", () => {
-  const fiveAhead = team(1, "Five Ahead", 65, 45);
-  const oneBehind = team(2, "One Behind", 59, 51);
-  const map = buildTeamMap([redSox, fiveAhead, oneBehind]);
+test("identical records produce no rooting preference", () => {
+  const first = team(1, "First", 59, 51);
+  const second = team(2, "Second", 59, 51);
+  const map = buildTeamMap([redSox, first, second]);
 
-  const result = rankGames([game(side(fiveAhead), side(oneBehind))], map);
+  const result = rankGames([game(side(first), side(second))], map);
 
-  assert.equal(map.get(fiveAhead.team.id).gap, 5);
-  assert.equal(map.get(oneBehind.team.id).gap, -1);
-  assert.equal(result.recommendations[0].rankingDifference, 4);
+  assert.equal(result.recommendations[0].rankingDifference, 0);
 });
 
-test("interleague matchups subtract zero threat from the AL team's threat", () => {
+test("interleague matchups subtract zero from the AL team's threat", () => {
   const yankees = team(147, "Yankees", 62, 48);
   const cardinals = team(138, "Cardinals", 55, 55);
   const map = buildTeamMap([redSox, yankees]);
 
   const result = rankGames([game(side(cardinals, 104), side(yankees))], map);
 
-  assert.equal(result.recommendations[0].rankingDifference, 8);
+  assert.equal(result.recommendations[0].rankingDifference, map.get(yankees.team.id).threat);
 });
 
-test("teams ten games away have zero threat", () => {
+test("teams beyond the dynamic race window have zero threat", () => {
   const closeTeam = team(1, "Close", 58, 52);
-  const filteredTeam = team(2, "Filtered", 48, 62);
+  const filteredTeam = team(2, "Filtered", 47, 63);
   const map = buildTeamMap([redSox, closeTeam, filteredTeam]);
 
   const result = rankGames([game(side(filteredTeam), side(closeTeam))], map);
 
   assert.equal(map.get(filteredTeam.team.id).eligible, false);
-  assert.equal(result.recommendations[0].rankingDifference, 8);
+  assert.equal(result.recommendations[0].rankingDifference, map.get(closeTeam.team.id).threat);
 });
 
 test("games that recommend a Yankees win are omitted", () => {
