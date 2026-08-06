@@ -181,6 +181,19 @@ function PickIndicator() {
   );
 }
 
+function opponentLabel(teamId, games) {
+  const matchups = games.flatMap((game) => {
+    const isAway = game.teams.away.team.id === teamId;
+    const isHome = game.teams.home.team.id === teamId;
+    if (!isAway && !isHome) return [];
+
+    const opponent = isAway ? game.teams.home.team : game.teams.away.team;
+    return [`${isAway ? "at" : "vs"} ${teamLabel(opponent)}`];
+  });
+
+  return matchups.length ? matchups.join(" / ") : "Off";
+}
+
 function Recommendation({ item, rank, teamMap }) {
   const { game, targetSide, rootForSide } = item;
   const isFinal = game.status.abstractGameState === "Final";
@@ -236,7 +249,7 @@ function Recommendation({ item, rank, teamMap }) {
   );
 }
 
-function RaceLine({ teamMap }) {
+function RaceLine({ teamMap, games }) {
   const teams = [...teamMap.values()]
     .filter((team) => team.team.id === RED_SOX_ID || team.gap > -10)
     .sort((a, b) => b.gap - a.gap);
@@ -261,7 +274,11 @@ function RaceLine({ teamMap }) {
                 <span className="race-team__name">{teamLabel(team.team)}</span>
                 {inPlayoffs && <span className="playoff-badge">Playoff</span>}
               </span>
-              <span className="race-team__record">{team.wins}-{team.losses}</span>
+              <span className="race-team__details">
+                <span>{team.wins}-{team.losses}</span>
+                <span aria-hidden="true">·</span>
+                <span>{opponentLabel(team.team.id, games)}</span>
+              </span>
               <RaceGap gap={team.gap} />
             </div>
           );
@@ -315,7 +332,7 @@ function App() {
         const records = flattenStandings(standings);
         const teamMap = buildTeamMap(records);
         const games = schedule.dates[0]?.games ?? [];
-        setData({ teamMap, ...rankGames(games, teamMap) });
+        setData({ teamMap, games, ...rankGames(games, teamMap) });
       } catch (requestError) {
         if (requestError.name !== "AbortError" && initialLoad) {
           setError(requestError.message);
@@ -387,7 +404,7 @@ function App() {
                 </div>
               )}
             </section>
-            <RaceLine teamMap={data.teamMap} />
+            <RaceLine teamMap={data.teamMap} games={data.games} />
           </div>
         </main>
       )}

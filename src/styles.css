@@ -139,6 +139,8 @@ button { cursor: pointer; }
 .section-heading h1 { font-size: clamp(2.7rem, 6vw, 5rem); }
 .section-heading h2 { font-size: 2.2rem; }
 
+.section-heading--guide h1 { font-size: 2.2rem; }
+
 .section-heading--guide {
   display: flex;
   align-items: end;
@@ -415,7 +417,16 @@ button { cursor: pointer; }
   letter-spacing: .06em;
 }
 .race-team--sox .playoff-badge { color: var(--red); background: white; }
-.race-team__record { grid-row: 2; color: inherit; opacity: .68; }
+.race-team__details {
+  display: flex;
+  grid-row: 2;
+  gap: 5px;
+  min-width: 0;
+  color: inherit;
+  opacity: .68;
+  white-space: nowrap;
+}
+.race-team__details span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .race-gap { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: .72rem; text-align: right; }
 .race-gap span { font-size: .9rem; }
 .race-gap--ahead { color: var(--red); }
@@ -449,7 +460,6 @@ button { cursor: pointer; }
   .content-grid { gap: 36px; padding: 30px 0 42px; }
   .section-heading--guide { display: block; }
   .section-heading--guide { margin-bottom: 17px; }
-  .section-heading--guide h1 { font-size: 2.35rem; }
   .section-heading--guide > p { margin-top: 8px; font-size: .72rem; }
   .recommendation { grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 14px 0; }
   .recommendation__rank { font-size: .9rem; }
