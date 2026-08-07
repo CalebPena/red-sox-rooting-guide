@@ -20,26 +20,81 @@ export function buildTeamMap(records) {
 
   const redSoxGamesPlayed = redSox.gamesPlayed ?? redSox.wins + redSox.losses;
   const redSoxGamesRemaining = Math.max(0, 162 - redSoxGamesPlayed);
-  const teams = records.map((record) => {
+  const baseTeams = records.map((record) => {
     const gap = relativeGap(record, redSox);
-    const distance = Math.abs(gap);
     const gamesPlayed = record.gamesPlayed ?? record.wins + record.losses;
     const gamesRemaining = Math.max(0, 162 - gamesPlayed);
     const winningPercentage = gamesPlayed > 0 ? record.wins / gamesPlayed : 0.5;
 
+    return {
+      ...record,
+      gap,
+      directDistance: Math.abs(gap),
+      gamesRemaining,
+      winningPercentage,
+    };
+  });
+
+  const redSoxDivisionId = redSox.divisionId;
+  const redSoxDivisionLeader = baseTeams.find(
+    (record) =>
+      record.divisionId === redSoxDivisionId && String(record.divisionRank) === "1",
+  );
+
+  const teams = baseTeams.map((record) => {
+    let distance = record.directDistance;
+    let wildCardPath = null;
+    let divisionWinnerPath = null;
+
+    if (
+      redSoxDivisionId !== undefined &&
+      record.divisionId !== redSoxDivisionId &&
+      String(record.divisionRank) === "1"
+    ) {
+      // Another division's leader matters through its shortest route to Boston:
+      // falling behind its runner-up, or meeting Boston in the division-winner race.
+      const divisionRunnerUp = baseTeams.find(
+        (candidate) =>
+          candidate.divisionId === record.divisionId &&
+          String(candidate.divisionRank) === "2",
+      );
+
+      if (divisionRunnerUp) {
+        const divisionLead = Math.max(0, relativeGap(record, divisionRunnerUp));
+        const runnerUpDistance = Math.abs(relativeGap(divisionRunnerUp, redSox));
+        wildCardPath = divisionLead + runnerUpDistance;
+      }
+
+      if (redSoxDivisionLeader) {
+        const redSoxDivisionDeficit = Math.max(
+          0,
+          relativeGap(redSoxDivisionLeader, redSox),
+        );
+        const divisionLeaderDistance = Math.abs(
+          relativeGap(record, redSoxDivisionLeader),
+        );
+        divisionWinnerPath = redSoxDivisionDeficit + divisionLeaderDistance;
+      }
+
+      const availablePaths = [wildCardPath, divisionWinnerPath].filter(Number.isFinite);
+      if (availablePaths.length > 0) {
+        distance = Math.min(...availablePaths);
+      }
+    }
+
     // The window shrinks with both teams' remaining schedules; proximity removes
     // teams outside that window; the record factor rewards teams above .500;
     // threat combines those two signals without a fixed late-season cutoff.
-    const raceWindow = Math.sqrt(redSoxGamesRemaining + gamesRemaining);
+    const raceWindow = Math.sqrt(redSoxGamesRemaining + record.gamesRemaining);
     const proximity = Math.max(0, raceWindow - distance);
-    const recordFactor = winningPercentage / 0.5;
+    const recordFactor = record.winningPercentage / 0.5;
     const threat = proximity * recordFactor;
 
     return {
       ...record,
-      gap,
       distance,
-      gamesRemaining,
+      wildCardPath,
+      divisionWinnerPath,
       raceWindow,
       threat,
       eligible: record.team.id !== RED_SOX_ID && threat > 0,
@@ -122,5 +177,10 @@ export function rankGames(games, teamMap) {
 }
 
 export function flattenStandings(standings) {
-  return standings.records.flatMap((division) => division.teamRecords);
+  return standings.records.flatMap((division) =>
+    division.teamRecords.map((record) => ({
+      ...record,
+      divisionId: division.division.id,
+    })),
+  );
 }

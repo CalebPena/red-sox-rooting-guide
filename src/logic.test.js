@@ -1,11 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTeamMap, isPlayoffTeam, rankGames, relativeGap } from "./logic.js";
+import {
+  buildTeamMap,
+  flattenStandings,
+  isPlayoffTeam,
+  rankGames,
+  relativeGap,
+} from "./logic.js";
 
 const team = (id, name, wins, losses) => ({
   team: { id, name },
   wins,
   losses,
+});
+
+const divisionTeam = (record, divisionId, divisionRank) => ({
+  ...record,
+  divisionId,
+  divisionRank: String(divisionRank),
 });
 
 const side = (record, leagueId = 103) => ({
@@ -36,6 +48,59 @@ test("playoff teams include division leaders and the top three wild cards", () =
   assert.equal(isPlayoffTeam({ divisionRank: "1" }), true);
   assert.equal(isPlayoffTeam({ divisionRank: "2", wildCardRank: "3" }), true);
   assert.equal(isPlayoffTeam({ divisionRank: "2", wildCardRank: "4" }), false);
+});
+
+test("other division leaders use the shorter route to Boston relevance", () => {
+  const boston = divisionTeam(redSox, 201, 2);
+  const eastLeader = divisionTeam(team(147, "Yankees", 65, 45), 201, 1);
+  const centralLeader = divisionTeam(team(1, "Central Leader", 61, 49), 202, 1);
+  const centralRunnerUp = divisionTeam(team(2, "Central Runner Up", 60, 50), 202, 2);
+  const map = buildTeamMap([boston, eastLeader, centralLeader, centralRunnerUp]);
+  const leader = map.get(centralLeader.team.id);
+
+  assert.equal(leader.directDistance, 1);
+  assert.equal(leader.wildCardPath, 1);
+  assert.equal(leader.divisionWinnerPath, 9);
+  assert.equal(leader.distance, 1);
+});
+
+test("protected other division leaders are farther away than their direct gap", () => {
+  const boston = divisionTeam(redSox, 201, 2);
+  const eastLeader = divisionTeam(team(147, "Yankees", 62, 48), 201, 1);
+  const centralLeader = divisionTeam(team(1, "Central Leader", 59, 51), 202, 1);
+  const centralRunnerUp = divisionTeam(team(2, "Central Runner Up", 57, 53), 202, 2);
+  const map = buildTeamMap([boston, eastLeader, centralLeader, centralRunnerUp]);
+  const leader = map.get(centralLeader.team.id);
+
+  assert.equal(leader.directDistance, 1);
+  assert.equal(leader.wildCardPath, 5);
+  assert.equal(leader.divisionWinnerPath, 5);
+  assert.equal(leader.distance, 5);
+});
+
+test("other division leaders use direct distance when Boston leads the East", () => {
+  const boston = divisionTeam(redSox, 201, 1);
+  const westLeader = divisionTeam(team(1, "West Leader", 63, 47), 200, 1);
+  const westRunnerUp = divisionTeam(team(2, "West Runner Up", 59, 51), 200, 2);
+  const map = buildTeamMap([boston, westLeader, westRunnerUp]);
+  const leader = map.get(westLeader.team.id);
+
+  assert.equal(leader.directDistance, 3);
+  assert.equal(leader.divisionWinnerPath, 3);
+  assert.equal(leader.distance, 3);
+});
+
+test("flattenStandings preserves division identity", () => {
+  const standings = {
+    records: [
+      {
+        division: { id: 201 },
+        teamRecords: [redSox],
+      },
+    ],
+  };
+
+  assert.equal(flattenStandings(standings)[0].divisionId, 201);
 });
 
 test("equal distance favors the stronger team", () => {
