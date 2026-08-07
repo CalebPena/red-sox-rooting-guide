@@ -80,6 +80,7 @@ function displayDate(date) {
 
 function gameTime(game) {
   const state = game.status.abstractGameState;
+  if (isPostponed(game) || isDelayed(game)) return game.status.detailedState;
   if (state === "Live") {
     const inningState = game.linescore?.inningState;
     const inning = game.linescore?.currentInningOrdinal;
@@ -98,6 +99,10 @@ function gameTime(game) {
 
 function isDelayed(game) {
   return /delay/i.test(game.status.detailedState ?? "");
+}
+
+function isPostponed(game) {
+  return /postponed/i.test(game.status.detailedState ?? "");
 }
 
 function score(game, sideName) {
@@ -236,43 +241,6 @@ function BaseDiamond({ offense = {}, outs = 0 }) {
   );
 }
 
-function TeamMark({ team, small = false }) {
-  return (
-    <span className={`team-mark ${small ? "team-mark--small" : ""}`} aria-hidden="true">
-      {team.abbreviation || teamLabel(team).slice(0, 3).toUpperCase()}
-    </span>
-  );
-}
-
-function Matchup({ game, emphasizedTeamId }) {
-  return (
-    <div className="matchup">
-      {["away", "home"].map((sideName) => {
-        const side = game.teams[sideName];
-        const displayedScore = score(game, sideName);
-        const probablePitcher = game.status.abstractGameState === "Preview"
-          ? probablePitcherLabel(side.probablePitcher)
-          : null;
-        return (
-          <div
-            className={`matchup__team ${side.team.id === emphasizedTeamId ? "matchup__team--root" : ""}`}
-            key={sideName}
-          >
-            <TeamMark team={side.team} small />
-            <span>{teamLabel(side.team)}</span>
-            {displayedScore !== null && <strong className="matchup__score">{displayedScore}</strong>}
-            {probablePitcher && (
-              <span className="recommendation__pitcher" title="Probable pitcher">
-                {probablePitcher}
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function SoxGame({ game, teamMap }) {
   if (!game) {
     return (
@@ -297,6 +265,7 @@ function SoxGame({ game, teamMap }) {
   const opponentPitcher = probablePitcherLabel(opponentSide.probablePitcher);
   const hasPitchingMatchup = isUpcoming && (soxPitcher || opponentPitcher);
   const isFinal = game.status.abstractGameState === "Final";
+  const isInterrupted = isDelayed(game) || isPostponed(game);
   const result = !isFinal || !hasScore || soxScore === opponentScore
     ? null
     : soxScore > opponentScore
@@ -309,13 +278,13 @@ function SoxGame({ game, teamMap }) {
       : `Sox ${result === "favorable" ? "win" : "lose"}`;
   const resultClass = result
     ? `sox-game--${result}`
-    : (isFinal && hasScore && soxScore === opponentScore) || isDelayed(game)
+    : (isFinal && hasScore && soxScore === opponentScore) || isInterrupted
       ? "sox-game--neutral"
       : "";
   const locationLabel = soxSideName === "home" ? "vs" : "at";
   const displaySides = [game.teams[soxSideName], opponentSide];
   const opponentStanding = teamMap?.get(opponentSide.team.id);
-  const gameMeta = [isFinal ? null : gameTime(game), isUpcoming ? game.venue?.name : null].filter(Boolean).join(" · ");
+  const gameMeta = [isFinal && !isInterrupted ? null : gameTime(game), isUpcoming ? game.venue?.name : null].filter(Boolean).join(" · ");
 
   return (
     <section className={`sox-game ${resultClass}`}>
@@ -341,7 +310,6 @@ function SoxGame({ game, teamMap }) {
               {index === 1 && <span className="recommendation__separator">{locationLabel}</span>}
               <div className={`recommendation__team ${index === 0 ? "recommendation__team--pick" : ""}`}>
                 <div className="recommendation__team-name">
-                  <TeamMark team={side.team} small />
                   <h3>{teamLabel(side.team)}</h3>
                   {index === 1 && opponentStanding && <MatchupGap gap={opponentStanding.gap} />}
                 </div>
@@ -427,6 +395,7 @@ function opponentLabel(teamId, games) {
 function Recommendation({ item, rank, teamMap }) {
   const { game, targetSide, rootForSide } = item;
   const isFinal = game.status.abstractGameState === "Final";
+  const isInterrupted = isDelayed(game) || isPostponed(game);
   const rootScore = sideScore(game, rootForSide);
   const targetScore = sideScore(game, targetSide);
   const hasScore = rootScore !== null && targetScore !== null;
@@ -446,7 +415,7 @@ function Recommendation({ item, rank, teamMap }) {
       : result === "favorable" ? "Favorable result" : "Unfavorable result";
   const resultClass = result
     ? `recommendation--${result}`
-    : (isFinal && hasScore && rootScore === targetScore) || isDelayed(game)
+    : (isFinal && hasScore && rootScore === targetScore) || isInterrupted
       ? "recommendation--neutral"
       : "";
   const displaySides = [rootForSide, targetSide];
@@ -459,7 +428,7 @@ function Recommendation({ item, rank, teamMap }) {
           <p className="eyebrow">{String(rank).padStart(2, "0")}</p>
           <PickIndicator />
           <div className="recommendation__status">
-            {!isFinal && <span className="game-time">{gameTime(game)}</span>}
+            {(!isFinal || isInterrupted) && <span className="game-time">{gameTime(game)}</span>}
             {resultLabel && (
               <strong className="result-badge">
                 <span aria-hidden="true">{result === "favorable" ? "✓" : result === "unfavorable" ? "×" : "•"}</span>
@@ -477,7 +446,6 @@ function Recommendation({ item, rank, teamMap }) {
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
                 <div className={`recommendation__team recommendation__team--${isPick ? "pick" : "target"}`}>
                   <div className="recommendation__team-name">
-                    <TeamMark team={side.team} small />
                     <h3>{teamLabel(side.team)}</h3>
                     {standing && <MatchupGap gap={standing.gap} />}
                   </div>

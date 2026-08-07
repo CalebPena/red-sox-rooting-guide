@@ -144,8 +144,6 @@ button { cursor: pointer; }
   transform: translateY(-50%);
 }
 
-.sox-game .recommendation__team .team-mark { display: none; }
-
 .sox-game .recommendation__team h3 {
   margin: .5em 0;
   font-size: clamp(2rem, 4vw, 3.25rem);
@@ -319,15 +317,6 @@ button { cursor: pointer; }
   box-shadow: inset 5px 0 var(--muted);
 }
 
-.recommendation__rank {
-  align-self: start;
-  padding-top: 3px;
-  color: var(--red);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
 .recommendation .recommendation__matchup { width: 100%; }
 
 .recommendation .recommendation__teams {
@@ -356,8 +345,6 @@ button { cursor: pointer; }
   min-width: 0;
   width: auto;
 }
-
-.recommendation .recommendation__team .team-mark { display: none; }
 
 .recommendation .recommendation__team h3 {
   margin: 0;
@@ -442,16 +429,6 @@ button { cursor: pointer; }
   color: var(--ink);
   font-family: "Barlow Condensed", sans-serif;
   font-size: 1.8rem;
-}
-
-.recommendation__pitcher {
-  max-width: 100px;
-  color: var(--muted);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: .74rem;
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: right;
 }
 
 .recommendation__gap {
@@ -545,36 +522,6 @@ button { cursor: pointer; }
 .recommendation--unfavorable .result-badge,
 .sox-game--unfavorable .result-badge { background: var(--unfavorable); }
 .result-badge span { font-size: .85rem; line-height: .7; }
-
-.team-mark {
-  display: inline-grid;
-  flex: 0 0 auto;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  border-radius: 50%;
-  color: white;
-  background: var(--green);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: .85rem;
-  font-weight: 800;
-}
-.team-mark--small { width: 28px; height: 28px; font-size: .6rem; }
-
-.matchup__team {
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  gap: 9px;
-  align-items: center;
-  min-height: 39px;
-  border-bottom: 1px solid var(--rule);
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-.matchup__team:last-child { border-bottom: 0; }
-.matchup__team--root { color: var(--green); font-weight: 800; }
-.matchup__score { font-family: "Barlow Condensed", sans-serif; font-size: 1.15rem; }
 
 .race-line { padding-top: 5px; }
 .race-line .section-heading { padding-bottom: 16px; border-bottom: 2px solid var(--ink); }
@@ -692,11 +639,8 @@ button { cursor: pointer; }
   .recommendation__score { grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr); gap: 0; }
   .recommendation .recommendation__team { gap: 5px; min-height: 39px; padding: 5px; }
   .recommendation__team-name { grid-template-columns: 23px minmax(0, 1fr) auto; gap: 6px; }
-  .recommendation__team .team-mark { width: 23px; height: 23px; font-size: .52rem; }
   .recommendation .recommendation__team h3 { font-size: 1.2rem; }
   .recommendation__team-name strong { font-size: 1.35rem; }
-  .recommendation__pitcher { max-width: 64px; font-size: .58rem; }
-  .recommendation__at { padding: 0; font-size: .62rem; }
   .recommendation .recommendation__gap { gap: 3px; padding-left: 0; font-size: .45rem; }
   .recommendation__gap strong { font-size: .72rem; }
   .recommendation .pick-indicator { padding: 4px 5px; font-size: .46rem; }
