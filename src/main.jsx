@@ -12,6 +12,7 @@ import "./styles.css";
 
 const API = "https://statsapi.mlb.com/api/v1";
 const pitcherEraCache = new Map();
+const SHOW_LIVE_MOCK = new URLSearchParams(window.location.search).get("mock") === "live";
 
 async function pitcherEra(pitcherId, season, signal) {
   const cacheKey = `${season}:${pitcherId}`;
@@ -33,16 +34,9 @@ async function pitcherEra(pitcherId, season, signal) {
   return pitcherEraCache.get(cacheKey);
 }
 
-async function addRedSoxPitcherEras(games, season, signal) {
-  const redSoxGame = games.find(
-    (game) =>
-      game.teams.away.team.id === RED_SOX_ID ||
-      game.teams.home.team.id === RED_SOX_ID,
-  );
-  if (!redSoxGame) return;
-
+async function addPitcherEras(games, season, signal) {
   await Promise.all(
-    [redSoxGame.teams.away, redSoxGame.teams.home].map(async (side) => {
+    games.filter(Boolean).flatMap((game) => [game.teams.away, game.teams.home]).map(async (side) => {
       if (!side.probablePitcher?.id) return;
       side.probablePitcher.era = await pitcherEra(side.probablePitcher.id, season, signal);
     }),
@@ -89,13 +83,9 @@ function gameTime(game) {
   if (state === "Live") {
     const inningState = game.linescore?.inningState;
     const inning = game.linescore?.currentInningOrdinal;
-    const outs = game.linescore?.outs;
     const inningLabel = inningState && inning ? `${inningState} ${inning}` : null;
-    const outsLabel = ["Top", "Bottom"].includes(inningState) && Number.isInteger(outs)
-      ? `${outs} ${outs === 1 ? "out" : "outs"}`
-      : null;
 
-    return [inningLabel, outsLabel].filter(Boolean).join(" · ") || game.status.detailedState;
+    return inningLabel || game.status.detailedState;
   }
   if (state === "Final") return "Final";
   if (game.status.startTimeTBD) return "Time TBD";
@@ -104,6 +94,10 @@ function gameTime(game) {
     minute: "2-digit",
     timeZoneName: "short",
   }).format(new Date(game.gameDate));
+}
+
+function isDelayed(game) {
+  return /delay/i.test(game.status.detailedState ?? "");
 }
 
 function score(game, sideName) {
@@ -122,6 +116,124 @@ function teamLabel(team) {
 function probablePitcherLabel(pitcher) {
   if (!pitcher) return null;
   return `${pitcher.fullName}${pitcher.era ? ` · ${pitcher.era} ERA` : ""}`;
+}
+
+function mockLiveGame(game) {
+  const source = game ?? {
+    gamePk: "mock-live-game",
+    gameDate: new Date().toISOString(),
+    venue: { name: "Fenway Park" },
+    teams: {
+      away: { team: { id: 133, abbreviation: "ATH", name: "Athletics", teamName: "Athletics" } },
+      home: { team: { id: RED_SOX_ID, abbreviation: "BOS", name: "Boston Red Sox", teamName: "Red Sox" } },
+    },
+  };
+  const soxSideName = source.teams.away.team.id === RED_SOX_ID ? "away" : "home";
+  const opponentSideName = soxSideName === "away" ? "home" : "away";
+
+  return {
+    ...source,
+    isMock: true,
+    status: { abstractGameState: "Live", detailedState: "In Progress" },
+    teams: {
+      ...source.teams,
+      [soxSideName]: { ...source.teams[soxSideName], score: 5 },
+      [opponentSideName]: { ...source.teams[opponentSideName], score: 3 },
+    },
+    linescore: {
+      ...source.linescore,
+      currentInning: 7,
+      currentInningOrdinal: "7th",
+      inningState: soxSideName === "away" ? "Top" : "Bottom",
+      outs: 2,
+      offense: {
+        first: { id: 680776, fullName: "Jarren Duran" },
+        third: { id: 678882, fullName: "Ceddanne Rafaela" },
+      },
+    },
+  };
+}
+
+function mockLiveRecommendations(recommendations) {
+  const situations = [
+    { scores: [4, 2], inning: 6, outs: 1, occupied: ["second"] },
+    { scores: [1, 3], inning: 3, outs: 0, occupied: [] },
+    { scores: [5, 5], inning: 8, outs: 2, occupied: ["first", "third"] },
+    { scores: [7, 4], inning: 5, outs: 1, occupied: ["first"] },
+    { scores: [2, 6], inning: 9, outs: 2, occupied: ["first", "second", "third"] },
+  ];
+
+  return recommendations.map((item, index) => {
+    const situation = situations[index % situations.length];
+    const [rootScore, targetScore] = situation.scores;
+    const rootForSide = { ...item.rootForSide, score: rootScore };
+    const targetSide = { ...item.targetSide, score: targetScore };
+    const sideForTeam = (side) => side.team.id === rootForSide.team.id ? rootForSide : targetSide;
+    const rootIsAway = item.game.teams.away.team.id === rootForSide.team.id;
+    const offense = Object.fromEntries(
+      situation.occupied.map((base, runnerIndex) => [
+        base,
+        { id: `mock-runner-${index}-${runnerIndex}`, fullName: "Mock runner" },
+      ]),
+    );
+
+    return {
+      ...item,
+      rootForSide,
+      targetSide,
+      game: {
+        ...item.game,
+        status: {
+          abstractGameState: "Live",
+          detailedState: "In Progress",
+        },
+        teams: {
+          away: sideForTeam(item.game.teams.away),
+          home: sideForTeam(item.game.teams.home),
+        },
+        linescore: {
+          currentInning: situation.inning,
+          currentInningOrdinal: `${situation.inning}${situation.inning === 3 ? "rd" : "th"}`,
+          inningState: rootIsAway ? "Top" : "Bottom",
+          outs: situation.outs,
+          offense,
+        },
+      },
+    };
+  });
+}
+
+function BaseDiamond({ offense = {}, outs = 0 }) {
+  const baseRadius = 7;
+  const bases = [
+    { key: "first", label: "First base", x: 35, y: 17 },
+    { key: "second", label: "Second base", x: 26, y: 8 },
+    { key: "third", label: "Third base", x: 17, y: 17 },
+  ];
+  const occupiedBases = bases.filter(({ key }) => offense[key]);
+  const runners = occupiedBases.length
+    ? occupiedBases.map(({ key, label }) => `${label}: ${offense[key].fullName}`).join("; ")
+    : "Bases empty";
+  const outCount = Number.isInteger(outs) ? Math.min(Math.max(outs, 0), 3) : 0;
+
+  return (
+    <div className="live-bases" role="img" aria-label={`${runners}; ${outCount} ${outCount === 1 ? "out" : "outs"}`}>
+      <svg className="base-diamond" viewBox="0 0 52 25" aria-hidden="true">
+        {bases.map(({ key, x, y }) => (
+          <polygon
+            className={`base-diamond__base ${offense[key] ? "base-diamond__base--occupied" : ""}`}
+            points={`${x},${y - baseRadius} ${x + baseRadius},${y} ${x},${y + baseRadius} ${x - baseRadius},${y}`}
+            key={key}
+          />
+        ))}
+      </svg>
+      <span className="out-count" aria-hidden="true">
+        {[0, 1, 2].map((out) => (
+          <span className={out < outCount ? "out-count__dot out-count__dot--recorded" : "out-count__dot"} key={out} />
+        ))}
+      </span>
+    </div>
+  );
 }
 
 function TeamMark({ team, small = false }) {
@@ -161,7 +273,7 @@ function Matchup({ game, emphasizedTeamId }) {
   );
 }
 
-function SoxGame({ game }) {
+function SoxGame({ game, teamMap }) {
   if (!game) {
     return (
       <section className="sox-game sox-game--off">
@@ -175,15 +287,85 @@ function SoxGame({ game }) {
   const opponentSide = [game.teams.away, game.teams.home].find(
     (side) => side.team.id !== RED_SOX_ID,
   );
+  const soxSideName = game.teams.away.team.id === RED_SOX_ID ? "away" : "home";
+  const opponentSideName = soxSideName === "away" ? "home" : "away";
+  const soxScore = score(game, soxSideName);
+  const opponentScore = score(game, opponentSideName);
+  const hasScore = soxScore !== null && opponentScore !== null;
+  const isUpcoming = game.status.abstractGameState === "Preview";
+  const soxPitcher = probablePitcherLabel(game.teams[soxSideName].probablePitcher);
+  const opponentPitcher = probablePitcherLabel(opponentSide.probablePitcher);
+  const hasPitchingMatchup = isUpcoming && (soxPitcher || opponentPitcher);
+  const isFinal = game.status.abstractGameState === "Final";
+  const result = !isFinal || !hasScore || soxScore === opponentScore
+    ? null
+    : soxScore > opponentScore
+      ? "favorable"
+      : "unfavorable";
+  const resultLabel = !isFinal || !hasScore
+    ? null
+    : soxScore === opponentScore
+      ? "Final · Tie"
+      : `Sox ${result === "favorable" ? "win" : "lose"}`;
+  const resultClass = result
+    ? `sox-game--${result}`
+    : (isFinal && hasScore && soxScore === opponentScore) || isDelayed(game)
+      ? "sox-game--neutral"
+      : "";
+  const locationLabel = soxSideName === "home" ? "vs" : "at";
+  const displaySides = [game.teams[soxSideName], opponentSide];
+  const opponentStanding = teamMap?.get(opponentSide.team.id);
+  const gameMeta = [isFinal ? null : gameTime(game), isUpcoming ? game.venue?.name : null].filter(Boolean).join(" · ");
 
   return (
-    <section className="sox-game">
-      <div>
-        <p className="eyebrow">Boston today</p>
-        <h2>Beat {teamLabel(opponentSide.team)}</h2>
-        <p className="sox-game__meta">{gameTime(game)} · {game.venue?.name}</p>
+    <section className={`sox-game ${resultClass}`}>
+      <div className="recommendation__matchup">
+        <div className="recommendation__matchup-heading">
+          <p className="eyebrow">
+            Red Sox matchup
+            {game.isMock && <span className="mock-badge">Mock live view</span>}
+          </p>
+          <div className="recommendation__status">
+            {gameMeta && <span className="game-time">{gameMeta}</span>}
+            {resultLabel && (
+              <strong className="result-badge">
+                <span aria-hidden="true">{result === "favorable" ? "✓" : result === "unfavorable" ? "×" : "•"}</span>
+                {resultLabel}
+              </strong>
+            )}
+          </div>
+        </div>
+        <div className="recommendation__teams">
+          {displaySides.map((side, index) => (
+            <React.Fragment key={side.team.id}>
+              {index === 1 && <span className="recommendation__separator">{locationLabel}</span>}
+              <div className={`recommendation__team ${index === 0 ? "recommendation__team--pick" : ""}`}>
+                <div className="recommendation__team-name">
+                  <TeamMark team={side.team} small />
+                  <h3>{teamLabel(side.team)}</h3>
+                  {index === 1 && opponentStanding && <MatchupGap gap={opponentStanding.gap} />}
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+        {hasScore && (
+          <div className={`sox-game__score ${isFinal ? "sox-game__score--final" : ""}`} aria-label="Game score">
+            <strong>{soxScore}</strong>
+            {game.status.abstractGameState === "Live"
+              ? <BaseDiamond offense={game.linescore?.offense} outs={game.linescore?.outs} />
+              : <span>Score</span>}
+            <strong>{opponentScore}</strong>
+          </div>
+        )}
+        {hasPitchingMatchup && (
+          <div className="sox-game__score sox-game__score--pitchers" aria-label="Probable pitchers">
+            <strong>{soxPitcher || "TBD"}</strong>
+            <span>Pitchers</span>
+            <strong>{opponentPitcher || "TBD"}</strong>
+          </div>
+        )}
       </div>
-      <Matchup game={game} emphasizedTeamId={RED_SOX_ID} />
     </section>
   );
 }
@@ -217,9 +399,8 @@ function MatchupGap({ gap }) {
   return (
     <span className="recommendation__gap" aria-label={gapLabel(gap)} title={gapLabel(gap)}>
       <strong>
-        {gap === 0 ? "EVEN" : <><span aria-hidden="true">{gap > 0 ? "↑" : "↓"}</span> {amount}</>}
+        <span aria-hidden="true">{gap === 0 ? "↔" : gap > 0 ? "↑" : "↓"}</span> {amount}
       </strong>
-      <span>vs BOS</span>
     </span>
   );
 }
@@ -246,28 +427,43 @@ function opponentLabel(teamId, games) {
 function Recommendation({ item, rank, teamMap }) {
   const { game, targetSide, rootForSide } = item;
   const isFinal = game.status.abstractGameState === "Final";
-  const hasFinalScore = Number.isInteger(rootForSide.score) && Number.isInteger(targetSide.score);
-  const favorable = isFinal && hasFinalScore ? rootForSide.score > targetSide.score : null;
-  const resultClass = favorable === null
-    ? ""
-    : favorable
-      ? "recommendation--favorable"
-      : "recommendation--unfavorable";
+  const rootScore = sideScore(game, rootForSide);
+  const targetScore = sideScore(game, targetSide);
+  const hasScore = rootScore !== null && targetScore !== null;
+  const isUpcoming = game.status.abstractGameState === "Preview";
+  const rootPitcher = probablePitcherLabel(rootForSide.probablePitcher);
+  const targetPitcher = probablePitcherLabel(targetSide.probablePitcher);
+  const hasPitchingMatchup = isUpcoming && (rootPitcher || targetPitcher);
+  const result = !isFinal || !hasScore || rootScore === targetScore
+    ? null
+    : rootScore > targetScore
+      ? "favorable"
+      : "unfavorable";
+  const resultLabel = !isFinal || !hasScore
+    ? null
+    : rootScore === targetScore
+      ? "Final · Tie"
+      : result === "favorable" ? "Favorable result" : "Unfavorable result";
+  const resultClass = result
+    ? `recommendation--${result}`
+    : (isFinal && hasScore && rootScore === targetScore) || isDelayed(game)
+      ? "recommendation--neutral"
+      : "";
   const displaySides = [rootForSide, targetSide];
   const matchupSeparator = rootForSide.team.id === game.teams.away.team.id ? "at" : "vs";
 
   return (
     <article className={`recommendation ${resultClass}`}>
-      <div className="recommendation__rank">{String(rank).padStart(2, "0")}</div>
       <div className="recommendation__matchup">
         <div className="recommendation__matchup-heading">
-          <p className="eyebrow">Matchup</p>
+          <p className="eyebrow">{String(rank).padStart(2, "0")}</p>
+          <PickIndicator />
           <div className="recommendation__status">
-            <span className="game-time">{gameTime(game)}</span>
-            {favorable !== null && (
+            {!isFinal && <span className="game-time">{gameTime(game)}</span>}
+            {resultLabel && (
               <strong className="result-badge">
-                <span aria-hidden="true">{favorable ? "✓" : "×"}</span>
-                {favorable ? "Favorable result" : "Unfavorable result"}
+                <span aria-hidden="true">{result === "favorable" ? "✓" : result === "unfavorable" ? "×" : "•"}</span>
+                {resultLabel}
               </strong>
             )}
           </div>
@@ -276,23 +472,36 @@ function Recommendation({ item, rank, teamMap }) {
           {displaySides.map((side, index) => {
             const isPick = index === 0;
             const standing = teamMap.get(side.team.id);
-            const displayedScore = sideScore(game, side);
             return (
               <React.Fragment key={side.team.id}>
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
-                <div className={`recommendation__team ${isPick ? "recommendation__team--pick" : ""}`}>
-                  {isPick && <PickIndicator />}
+                <div className={`recommendation__team recommendation__team--${isPick ? "pick" : "target"}`}>
                   <div className="recommendation__team-name">
                     <TeamMark team={side.team} small />
                     <h3>{teamLabel(side.team)}</h3>
-                    {displayedScore !== null && <strong>{displayedScore}</strong>}
+                    {standing && <MatchupGap gap={standing.gap} />}
                   </div>
-                  {standing && <MatchupGap gap={standing.gap} />}
                 </div>
               </React.Fragment>
             );
           })}
         </div>
+        {hasScore && (
+          <div className={`sox-game__score recommendation__score ${isFinal ? "sox-game__score--final" : ""}`} aria-label="Game score">
+            <strong>{rootScore}</strong>
+            {game.status.abstractGameState === "Live"
+              ? <BaseDiamond offense={game.linescore?.offense} outs={game.linescore?.outs} />
+              : <span>Score</span>}
+            <strong>{targetScore}</strong>
+          </div>
+        )}
+        {hasPitchingMatchup && (
+          <div className="sox-game__score sox-game__score--pitchers recommendation__score" aria-label="Probable pitchers">
+            <strong>{rootPitcher || "TBD"}</strong>
+            <span>Pitchers</span>
+            <strong>{targetPitcher || "TBD"}</strong>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -309,9 +518,7 @@ function RaceLine({ teamMap, games }) {
   return (
     <aside className="race-line">
       <div className="section-heading">
-        <p className="eyebrow">The race line</p>
-        <h2>Who is close?</h2>
-        <p className="race-line__legend"><span aria-hidden="true" /> Playoff spot today</p>
+        <h2>Standings</h2>
       </div>
       <div className="race-line__list">
         {teams.map((team) => {
@@ -384,8 +591,19 @@ function App() {
         const records = flattenStandings(standings);
         const teamMap = buildTeamMap(records);
         const games = schedule.dates[0]?.games ?? [];
-        await addRedSoxPitcherEras(games, season, controller.signal);
-        setData({ teamMap, games, ...rankGames(games, teamMap) });
+        const rankedGames = rankGames(games, teamMap);
+        const displayedGames = [
+          rankedGames.redSoxGame,
+          ...rankedGames.recommendations.map(({ game }) => game),
+        ];
+        await addPitcherEras(displayedGames, season, controller.signal);
+        const redSoxGame = SHOW_LIVE_MOCK
+          ? mockLiveGame(rankedGames.redSoxGame)
+          : rankedGames.redSoxGame;
+        const recommendations = SHOW_LIVE_MOCK
+          ? mockLiveRecommendations(rankedGames.recommendations)
+          : rankedGames.recommendations;
+        setData({ teamMap, games, ...rankedGames, redSoxGame, recommendations });
       } catch (requestError) {
         if (requestError.name !== "AbortError" && initialLoad) {
           setError(requestError.message);
@@ -429,12 +647,11 @@ function App() {
         <Loading />
       ) : (
         <main>
-          <SoxGame game={data.redSoxGame} />
+          <SoxGame game={data.redSoxGame} teamMap={data.teamMap} />
           <div className="content-grid">
             <section className="guide">
               <div className="section-heading section-heading--guide">
                 <div>
-                  <p className="eyebrow">Tonight’s assignment</p>
                   <h1>Who to root for</h1>
                 </div>
               </div>
