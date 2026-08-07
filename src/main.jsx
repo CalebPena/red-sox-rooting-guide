@@ -95,6 +95,10 @@ function Matchup({ game, emphasizedTeamId }) {
     <div className="matchup">
       {["away", "home"].map((sideName) => {
         const side = game.teams[sideName];
+        const displayedScore = score(game, sideName);
+        const probablePitcher = game.status.abstractGameState === "Preview"
+          ? side.probablePitcher?.fullName
+          : null;
         return (
           <div
             className={`matchup__team ${side.team.id === emphasizedTeamId ? "matchup__team--root" : ""}`}
@@ -102,8 +106,11 @@ function Matchup({ game, emphasizedTeamId }) {
           >
             <TeamMark team={side.team} small />
             <span>{teamLabel(side.team)}</span>
-            {score(game, sideName) !== null && (
-              <strong className="matchup__score">{score(game, sideName)}</strong>
+            {displayedScore !== null && <strong className="matchup__score">{displayedScore}</strong>}
+            {probablePitcher && (
+              <span className="recommendation__pitcher" title="Probable pitcher">
+                {probablePitcher}
+              </span>
             )}
           </div>
         );
@@ -228,6 +235,9 @@ function Recommendation({ item, rank, teamMap }) {
             const isPick = index === 0;
             const standing = teamMap.get(side.team.id);
             const displayedScore = sideScore(game, side);
+            const probablePitcher = game.status.abstractGameState === "Preview"
+              ? side.probablePitcher?.fullName
+              : null;
             return (
               <React.Fragment key={side.team.id}>
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
@@ -237,6 +247,11 @@ function Recommendation({ item, rank, teamMap }) {
                     <TeamMark team={side.team} small />
                     <h3>{teamLabel(side.team)}</h3>
                     {displayedScore !== null && <strong>{displayedScore}</strong>}
+                    {probablePitcher && (
+                      <span className="recommendation__pitcher" title="Probable pitcher">
+                        {probablePitcher}
+                      </span>
+                    )}
                   </div>
                   {standing && <MatchupGap gap={standing.gap} />}
                 </div>
@@ -319,7 +334,7 @@ function App() {
           fetch(`${API}/standings?leagueId=${AL_ID}&season=${season}&standingsTypes=regularSeason&date=${apiDate}`, {
             signal: controller.signal,
           }),
-          fetch(`${API}/schedule?sportId=1&date=${date}&hydrate=team,linescore,venue`, {
+          fetch(`${API}/schedule?sportId=1&date=${date}&hydrate=team,linescore,venue,probablePitcher`, {
             signal: controller.signal,
           }),
         ]);
