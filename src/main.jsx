@@ -11,6 +11,43 @@ import {
 import "./styles.css";
 
 const API = "https://statsapi.mlb.com/api/v1";
+const pitcherEraCache = new Map();
+
+async function pitcherEra(pitcherId, season, signal) {
+  const cacheKey = `${season}:${pitcherId}`;
+  if (!pitcherEraCache.has(cacheKey)) {
+    const request = fetch(
+      `${API}/people/${pitcherId}/stats?stats=season&group=pitching&season=${season}`,
+      { signal },
+    )
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => data?.stats?.[0]?.splits?.[0]?.stat?.era ?? null)
+      .catch((error) => {
+        pitcherEraCache.delete(cacheKey);
+        if (error.name === "AbortError") throw error;
+        return null;
+      });
+    pitcherEraCache.set(cacheKey, request);
+  }
+
+  return pitcherEraCache.get(cacheKey);
+}
+
+async function addRedSoxPitcherEras(games, season, signal) {
+  const redSoxGame = games.find(
+    (game) =>
+      game.teams.away.team.id === RED_SOX_ID ||
+      game.teams.home.team.id === RED_SOX_ID,
+  );
+  if (!redSoxGame) return;
+
+  await Promise.all(
+    [redSoxGame.teams.away, redSoxGame.teams.home].map(async (side) => {
+      if (!side.probablePitcher?.id) return;
+      side.probablePitcher.era = await pitcherEra(side.probablePitcher.id, season, signal);
+    }),
+  );
+}
 
 function easternDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -82,6 +119,11 @@ function teamLabel(team) {
   return team.teamName || team.clubName || team.name;
 }
 
+function probablePitcherLabel(pitcher) {
+  if (!pitcher) return null;
+  return `${pitcher.fullName}${pitcher.era ? ` · ${pitcher.era} ERA` : ""}`;
+}
+
 function TeamMark({ team, small = false }) {
   return (
     <span className={`team-mark ${small ? "team-mark--small" : ""}`} aria-hidden="true">
@@ -97,7 +139,7 @@ function Matchup({ game, emphasizedTeamId }) {
         const side = game.teams[sideName];
         const displayedScore = score(game, sideName);
         const probablePitcher = game.status.abstractGameState === "Preview"
-          ? side.probablePitcher?.fullName
+          ? probablePitcherLabel(side.probablePitcher)
           : null;
         return (
           <div
@@ -235,9 +277,6 @@ function Recommendation({ item, rank, teamMap }) {
             const isPick = index === 0;
             const standing = teamMap.get(side.team.id);
             const displayedScore = sideScore(game, side);
-            const probablePitcher = game.status.abstractGameState === "Preview"
-              ? side.probablePitcher?.fullName
-              : null;
             return (
               <React.Fragment key={side.team.id}>
                 {index === 1 && <span className="recommendation__separator">{matchupSeparator}</span>}
@@ -247,11 +286,6 @@ function Recommendation({ item, rank, teamMap }) {
                     <TeamMark team={side.team} small />
                     <h3>{teamLabel(side.team)}</h3>
                     {displayedScore !== null && <strong>{displayedScore}</strong>}
-                    {probablePitcher && (
-                      <span className="recommendation__pitcher" title="Probable pitcher">
-                        {probablePitcher}
-                      </span>
-                    )}
                   </div>
                   {standing && <MatchupGap gap={standing.gap} />}
                 </div>
@@ -350,6 +384,7 @@ function App() {
         const records = flattenStandings(standings);
         const teamMap = buildTeamMap(records);
         const games = schedule.dates[0]?.games ?? [];
+        await addRedSoxPitcherEras(games, season, controller.signal);
         setData({ teamMap, games, ...rankGames(games, teamMap) });
       } catch (requestError) {
         if (requestError.name !== "AbortError" && initialLoad) {
