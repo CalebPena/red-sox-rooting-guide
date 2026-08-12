@@ -477,10 +477,6 @@ function Recommendation({ item, rank, teamMap }) {
 
 function RaceLine({ teamMap, games }) {
   const teams = [...teamMap.values()]
-    .filter(
-      (team) =>
-        team.team.id === RED_SOX_ID || team.directDistance < team.raceWindow,
-    )
     .sort((a, b) => b.gap - a.gap);
 
   return (
