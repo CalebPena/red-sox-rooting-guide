@@ -174,7 +174,7 @@ test("an interleague Yankees loss remains a recommendation", () => {
   assert.equal(result.recommendations[0].rootForSide.team.id, cardinals.team.id);
 });
 
-test("the Red Sox game is separate and recommendations stop at five", () => {
+test("Red Sox games are separate and recommendations stop at five", () => {
   const opponents = Array.from({ length: 6 }, (_, index) =>
     team(index + 1, `Opponent ${index + 1}`, 59 - index, 51 + index),
   );
@@ -190,7 +190,20 @@ test("the Red Sox game is separate and recommendations stop at five", () => {
   ];
 
   const result = rankGames(games, map);
-  assert.equal(result.redSoxGame.teams.away.team.id, 111);
+  assert.equal(result.redSoxGames.length, 1);
+  assert.equal(result.redSoxGames[0].teams.away.team.id, 111);
   assert.equal(result.recommendations.length, 5);
   assert.equal(result.recommendations[0].target.team.id, opponents[0].team.id);
+});
+
+test("both Red Sox doubleheader games stay out of recommendations", () => {
+  const opponent = team(1, "Opponent", 59, 51);
+  const map = buildTeamMap([redSox, opponent]);
+  const firstGame = { ...game(side(redSox), side(opponent)), gamePk: "game-1", gameNumber: 1 };
+  const secondGame = { ...game(side(redSox), side(opponent)), gamePk: "game-2", gameNumber: 2 };
+
+  const result = rankGames([firstGame, secondGame], map);
+
+  assert.deepEqual(result.redSoxGames.map(({ gamePk }) => gamePk), ["game-1", "game-2"]);
+  assert.equal(result.recommendations.length, 0);
 });

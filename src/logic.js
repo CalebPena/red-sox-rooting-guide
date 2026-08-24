@@ -124,14 +124,14 @@ function compareTargets(left, right) {
 }
 
 export function rankGames(games, teamMap) {
-  const redSoxGame = games.find(
+  const redSoxGames = games.filter(
     (game) =>
       game.teams.away.team.id === RED_SOX_ID ||
       game.teams.home.team.id === RED_SOX_ID,
   );
 
   const recommendations = games
-    .filter((game) => game !== redSoxGame)
+    .filter((game) => !redSoxGames.includes(game))
     .map((game) => {
       const sides = [game.teams.away, game.teams.home];
       const eligible = sides
@@ -173,7 +173,7 @@ export function rankGames(games, teamMap) {
     })
     .slice(0, 5);
 
-  return { redSoxGame, recommendations };
+  return { redSoxGames, recommendations };
 }
 
 export function flattenStandings(standings) {

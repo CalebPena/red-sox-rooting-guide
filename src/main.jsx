@@ -241,7 +241,7 @@ function BaseDiamond({ offense = {}, outs = 0 }) {
   );
 }
 
-function SoxGame({ game, teamMap }) {
+function SoxGame({ game, teamMap, gameLabel }) {
   if (!game) {
     return (
       <section className="sox-game sox-game--off">
@@ -291,7 +291,7 @@ function SoxGame({ game, teamMap }) {
       <div className="recommendation__matchup">
         <div className="recommendation__matchup-heading">
           <p className="eyebrow">
-            Red Sox matchup
+            {gameLabel || "Red Sox matchup"}
             {game.isMock && <span className="mock-badge">Mock live view</span>}
           </p>
           <div className="recommendation__status">
@@ -557,17 +557,17 @@ function App() {
         const games = schedule.dates[0]?.games ?? [];
         const rankedGames = rankGames(games, teamMap);
         const displayedGames = [
-          rankedGames.redSoxGame,
+          ...rankedGames.redSoxGames,
           ...rankedGames.recommendations.map(({ game }) => game),
         ];
         await addPitcherEras(displayedGames, season, controller.signal);
-        const redSoxGame = SHOW_LIVE_MOCK
-          ? mockLiveGame(rankedGames.redSoxGame)
-          : rankedGames.redSoxGame;
+        const redSoxGames = SHOW_LIVE_MOCK
+          ? (rankedGames.redSoxGames.length ? rankedGames.redSoxGames : [null]).map(mockLiveGame)
+          : rankedGames.redSoxGames;
         const recommendations = SHOW_LIVE_MOCK
           ? mockLiveRecommendations(rankedGames.recommendations)
           : rankedGames.recommendations;
-        setData({ teamMap, games, ...rankedGames, redSoxGame, recommendations });
+        setData({ teamMap, games, ...rankedGames, redSoxGames, recommendations });
       } catch (requestError) {
         if (requestError.name !== "AbortError" && initialLoad) {
           setError(requestError.message);
@@ -611,7 +611,20 @@ function App() {
         <Loading />
       ) : (
         <main>
-          <SoxGame game={data.redSoxGame} teamMap={data.teamMap} />
+          {data.redSoxGames.length ? (
+            <div className="sox-games">
+              {data.redSoxGames.map((game, index) => (
+                <SoxGame
+                  game={game}
+                  gameLabel={data.redSoxGames.length > 1 ? `Red Sox matchup · Game ${index + 1}` : null}
+                  key={game.gamePk}
+                  teamMap={data.teamMap}
+                />
+              ))}
+            </div>
+          ) : (
+            <SoxGame game={null} teamMap={data.teamMap} />
+          )}
           <div className="content-grid">
             <section className="guide">
               <div className="section-heading section-heading--guide">
