@@ -18,19 +18,15 @@ export function buildTeamMap(records) {
     throw new Error("Boston is missing from the American League standings.");
   }
 
-  const redSoxGamesPlayed = redSox.gamesPlayed ?? redSox.wins + redSox.losses;
-  const redSoxGamesRemaining = Math.max(0, 162 - redSoxGamesPlayed);
   const baseTeams = records.map((record) => {
     const gap = relativeGap(record, redSox);
     const gamesPlayed = record.gamesPlayed ?? record.wins + record.losses;
-    const gamesRemaining = Math.max(0, 162 - gamesPlayed);
     const winningPercentage = gamesPlayed > 0 ? record.wins / gamesPlayed : 0.5;
 
     return {
       ...record,
       gap,
       directDistance: Math.abs(gap),
-      gamesRemaining,
       winningPercentage,
     };
   });
@@ -82,22 +78,17 @@ export function buildTeamMap(records) {
       }
     }
 
-    // The window shrinks with both teams' remaining schedules; proximity removes
-    // teams outside that window; the record factor rewards teams above .500;
-    // threat combines those two signals without a fixed late-season cutoff.
-    const raceWindow = Math.sqrt(redSoxGamesRemaining + record.gamesRemaining);
-    const proximity = Math.max(0, raceWindow - distance);
-    const recordFactor = record.winningPercentage / 0.5;
-    const threat = proximity * recordFactor;
+    // Reciprocal distance keeps every AL team relevant without a schedule-based
+    // cutoff, while winning percentage distinguishes teams at similar distances.
+    const threat = record.winningPercentage / (1 + distance);
 
     return {
       ...record,
       distance,
       wildCardPath,
       divisionWinnerPath,
-      raceWindow,
       threat,
-      eligible: record.team.id !== RED_SOX_ID && threat > 0,
+      eligible: record.team.id !== RED_SOX_ID,
     };
   });
 

@@ -38,10 +38,11 @@ test("relative gap handles unequal games played", () => {
   assert.equal(relativeGap(team(2, "Behind", 57, 52), redSox), -2.5);
 });
 
-test("the race window excludes teams too far from Boston", () => {
-  const map = buildTeamMap([redSox, team(1, "Inside", 51, 59), team(2, "Outside", 47, 63)]);
+test("every non-Boston AL team remains eligible", () => {
+  const map = buildTeamMap([redSox, team(1, "Close", 51, 59), team(2, "Distant", 47, 63)]);
   assert.equal(map.get(1).eligible, true);
-  assert.equal(map.get(2).eligible, false);
+  assert.equal(map.get(2).eligible, true);
+  assert.ok(map.get(2).threat > 0);
 });
 
 test("playoff teams include division leaders and the top three wild cards", () => {
@@ -147,15 +148,20 @@ test("interleague matchups subtract zero from the AL team's threat", () => {
   assert.equal(result.recommendations[0].rankingDifference, map.get(yankees.team.id).threat);
 });
 
-test("teams beyond the dynamic race window have zero threat", () => {
-  const closeTeam = team(1, "Close", 58, 52);
-  const filteredTeam = team(2, "Filtered", 47, 63);
-  const map = buildTeamMap([redSox, closeTeam, filteredTeam]);
+test("an AL team against an NL team matters more than two similarly relevant AL teams", () => {
+  const fourBack = team(1, "Four Back", 56, 54);
+  const fiveBack = team(2, "Five Back", 55, 55);
+  const sixBack = team(3, "Six Back", 54, 56);
+  const nlTeam = team(4, "NL Team", 55, 55);
+  const map = buildTeamMap([redSox, fourBack, fiveBack, sixBack]);
 
-  const result = rankGames([game(side(filteredTeam), side(closeTeam))], map);
+  const result = rankGames([
+    game(side(fourBack), side(fiveBack)),
+    game(side(sixBack), side(nlTeam, 104)),
+  ], map);
 
-  assert.equal(map.get(filteredTeam.team.id).eligible, false);
-  assert.equal(result.recommendations[0].rankingDifference, map.get(closeTeam.team.id).threat);
+  assert.equal(result.recommendations[0].target.team.id, sixBack.team.id);
+  assert.ok(result.recommendations[0].rankingDifference > result.recommendations[1].rankingDifference);
 });
 
 test("games that recommend a Yankees win are omitted", () => {
