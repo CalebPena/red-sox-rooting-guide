@@ -500,6 +500,8 @@ function RaceLine({ teamMap, games }) {
               <span className="race-team__details">
                 <span>{team.wins}-{team.losses}</span>
                 <span aria-hidden="true">·</span>
+                <span>{Math.max(0, 162 - (team.gamesPlayed ?? team.wins + team.losses))} left</span>
+                <span aria-hidden="true">·</span>
                 <span>{opponentLabel(team.team.id, games)}</span>
               </span>
               <RaceGap gap={team.gap} />
